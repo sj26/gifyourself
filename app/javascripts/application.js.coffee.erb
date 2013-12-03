@@ -1,0 +1,116 @@
+#= require gif
+
+URL = window.URL
+URL ||= window.webkitURL
+
+setImmediate = window.setImmediate
+setImmediate ||= (callback) -> setTimeout(callback, 0)
+
+videoInputNode = document.querySelector("#video input[type=file]")
+videoNode = document.querySelector("#video video")
+
+frameCanvasNode = document.createElement("canvas")
+frameCanvasContext = null
+frameButtonNode = document.querySelector("#video button")
+frameListNode = document.querySelector("#frames ol")
+
+gifWidthInputNode = document.querySelector("#gif_width")
+gifHeightInputNode = document.querySelector("#gif_height")
+gifCanvasNode = document.createElement("canvas")
+gifCanvasContext = null
+gifImageNode = document.querySelector("#gif img")
+
+videoInputNode.addEventListener "change", (event) ->
+  file = event.target.files[0]
+  fileURL = URL.createObjectURL(file)
+
+  videoNode.src = fileURL
+
+# Adjust the canvas to the video's size whenever that changes and cache a 2d context
+
+videoNode.addEventListener "loadedmetadata", (event) ->
+  frameCanvasNode.setAttribute "width", videoNode.videoWidth
+  frameCanvasNode.setAttribute "height", videoNode.videoHeight
+
+  frameCanvasContext = frameCanvasNode.getContext("2d")
+
+# Only allow capturing frames while we have video
+
+frameButtonNode.disabled = true
+
+videoNode.addEventListener "loadedmetadata", (event) ->
+  frameButtonNode.disabled = false
+
+videoNode.addEventListener "emptied", (event) ->
+  frameButtonNode.disabled = true
+
+# Capture frame
+
+frameButtonNode.addEventListener "click", (event) ->
+  frameCanvasContext.drawImage(videoNode, 0, 0, videoNode.videoWidth, videoNode.videoHeight)
+
+  width = gifWidthInputNode.valueAsNumber
+  height = gifHeightInputNode.valueAsNumber
+
+  imageNode = document.createElement("img")
+  imageNode.width = width
+  imageNode.height = height
+  imageNode.src = frameCanvasNode.toDataURL()
+
+  listItemNode = document.createElement("li")
+  listItemNode.appendChild(imageNode)
+
+  frameListNode.appendChild(listItemNode)
+
+  setImmediate(renderGif)
+
+# Resize frame previews
+
+resizeFrames = ->
+  width = gifWidthInputNode.valueAsNumber
+  height = gifHeightInputNode.valueAsNumber
+
+  imageNodes = document.querySelectorAll("#frames img")
+
+  for imageNode in imageNodes
+    imageNode.width = width
+    imageNode.height = height
+
+# Resize frame previews and re-render gif when parameters change
+
+for parameterNode in [gifWidthInputNode, gifHeightInputNode]
+  parameterNode.addEventListener "change", (event) ->
+    resizeFrames()
+    renderGif()
+
+# Render a gif, called when frames or parameters are changed
+
+renderGif = ->
+  imageNodes = document.querySelectorAll("#frames img")
+
+  if imageNodes.length
+    width = gifWidthInputNode.valueAsNumber
+    height = gifHeightInputNode.valueAsNumber
+
+    gifCanvasNode.width = width
+    gifCanvasNode.height = height
+
+    gifCanvasContext = gifCanvasNode.getContext("2d")
+
+    gif = new GIF
+      workerScript: <%= asset_path("gif.worker.js").to_json %>
+      workers: 2
+      quality: 10
+      width: width
+      height: height
+
+    for imageNode in imageNodes
+      gifCanvasContext.drawImage imageNode, 0, 0, width, height
+      gif.addFrame gifCanvasContext, copy: true
+
+    gif.on "finished", (gifBlob) ->
+      gifImageNode.src = URL.createObjectURL(gifBlob)
+
+    gif.render()
+  else
+    gifImageNode.src = ""

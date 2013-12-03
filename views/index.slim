@@ -1,0 +1,32 @@
+doctype html
+html
+  head
+    title GIF Yourself
+    link rel="stylesheet" href=asset_path("application.css")
+
+  body
+    header
+      h1 GIF Yourself
+      h2 HTML5 Video GIF creator
+
+    section#video
+      h2 Video
+      p: input type="file"
+      p: video[controls autoplay]
+      p: button Capture Frame
+
+    section#frames
+      h2 Frames
+      ol
+
+    section#gif
+      h2 GIF
+      p
+        label for="gif_width" Width
+        input id="gif_width" name="width" type="number" value="300"
+      p
+        label for="gif_height" Height
+        input id="gif_height" name="height" type="number" value="200"
+      p: img
+
+    script src=asset_path("application.js")
